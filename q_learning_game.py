@@ -12,9 +12,7 @@ FONT = pygame.font.SysFont("Arial", 24)
 # Configurations
 CELL_SIZE = 50
 MARGIN = 2
-SCREEN_PADDING = 100
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+SCREEN_PADDING = 10
 
 # Colors
 WHITE = (255, 255, 255)
@@ -23,7 +21,6 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
-YELLOW = (255, 255, 0)
 
 # Global Variables
 grid_size = 0
@@ -33,17 +30,23 @@ goal = None
 obstacles = set()
 q_table = None
 
-# Pygame screen
-screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+# Pygame screen (set to max resizable size)
+screen = pygame.display.set_mode((1000, 800), pygame.RESIZABLE)
 pygame.display.set_caption("Q-Learning Visualizer")
 
 # Helper to draw grid
 def draw_grid(agent=None):
     screen.fill(WHITE)
+    width, height = screen.get_size()
+    available_width = width - 2 * SCREEN_PADDING
+    available_height = height - 2 * SCREEN_PADDING
+    cell_size = min((available_width - MARGIN * grid_size) // grid_size,
+                    (available_height - MARGIN * grid_size) // grid_size)
+
     for row in range(grid_size):
         for col in range(grid_size):
-            x = col * (CELL_SIZE + MARGIN) + SCREEN_PADDING
-            y = row * (CELL_SIZE + MARGIN) + SCREEN_PADDING
+            x = col * (cell_size + MARGIN) + SCREEN_PADDING
+            y = row * (cell_size + MARGIN) + SCREEN_PADDING
             color = WHITE
             if (row, col) in obstacles:
                 color = BLACK
@@ -51,12 +54,13 @@ def draw_grid(agent=None):
                 color = GREEN
             elif (row, col) == start:
                 color = BLUE
-            pygame.draw.rect(screen, color, (x, y, CELL_SIZE, CELL_SIZE))
+            pygame.draw.rect(screen, color, (x, y, cell_size, cell_size))
+            pygame.draw.rect(screen, GRAY, (x, y, cell_size, cell_size), 1)
 
     if agent:
-        x = agent[1] * (CELL_SIZE + MARGIN) + SCREEN_PADDING
-        y = agent[0] * (CELL_SIZE + MARGIN) + SCREEN_PADDING
-        pygame.draw.circle(screen, RED, (x + CELL_SIZE // 2, y + CELL_SIZE // 2), CELL_SIZE // 3)
+        x = agent[1] * (cell_size + MARGIN) + SCREEN_PADDING
+        y = agent[0] * (cell_size + MARGIN) + SCREEN_PADDING
+        pygame.draw.circle(screen, RED, (x + cell_size // 2, y + cell_size // 2), cell_size // 3)
 
     pygame.display.update()
 
@@ -124,7 +128,7 @@ def train_q_learning():
             draw_grid(pos)
 
             if pos in obstacles:
-                time.sleep(0.5)
+                time.sleep(0.3)
                 pos = start  # Reboot
                 break
 
@@ -142,7 +146,11 @@ def setup_grid():
         txt = "Enter Grid Size (e.g., 5): " if input_mode == 'grid_size' else \
               "Click to place START (Blue), then GOAL (Green), then Obstacles (Black). Press Enter to start."
         label = FONT.render(txt + user_text, True, BLACK)
-        screen.blit(label, (50, 50))
+        screen.blit(label, (50, 30))
+
+        if input_mode == 'placement':
+            draw_grid()
+
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -156,8 +164,6 @@ def setup_grid():
                         try:
                             grid_size = int(user_text)
                             input_mode = 'placement'
-                            screen.fill(WHITE)
-                            draw_grid()
                         except:
                             user_text = ''
                     elif event.key == pygame.K_BACKSPACE:
@@ -168,16 +174,21 @@ def setup_grid():
             elif input_mode == 'placement':
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     x, y = pygame.mouse.get_pos()
-                    col = (x - SCREEN_PADDING) // (CELL_SIZE + MARGIN)
-                    row = (y - SCREEN_PADDING) // (CELL_SIZE + MARGIN)
+                    width, height = screen.get_size()
+                    available_width = width - 2 * SCREEN_PADDING
+                    available_height = height - 2 * SCREEN_PADDING
+                    cell_size = min((available_width - MARGIN * grid_size) // grid_size,
+                                    (available_height - MARGIN * grid_size) // grid_size)
+
+                    col = (x - SCREEN_PADDING) // (cell_size + MARGIN)
+                    row = (y - SCREEN_PADDING) // (cell_size + MARGIN)
                     if 0 <= row < grid_size and 0 <= col < grid_size:
                         if start is None:
                             start = (row, col)
-                        elif goal is None:
+                        elif goal is None and (row, col) != start:
                             goal = (row, col)
-                        else:
+                        elif (row, col) != start and (row, col) != goal:
                             obstacles.add((row, col))
-                    draw_grid()
 
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_RETURN and start and goal:
