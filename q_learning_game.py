@@ -21,6 +21,7 @@ BLACK = (0, 0, 0)
 GREEN = (0, 255, 0)
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
+ORANGE = (255, 165, 0)
 
 # Global Variables
 grid_size = 0
@@ -30,12 +31,12 @@ goal = None
 obstacles = set()
 q_table = None
 
-# Pygame screen (set to max resizable size)
+# Pygame screen
 screen = pygame.display.set_mode((1000, 800), pygame.RESIZABLE)
 pygame.display.set_caption("Q-Learning Visualizer")
 
 # Helper to draw grid
-def draw_grid(agent=None):
+def draw_grid(agent=None, final_path=None):
     screen.fill(WHITE)
     width, height = screen.get_size()
     available_width = width - 2 * SCREEN_PADDING
@@ -54,6 +55,8 @@ def draw_grid(agent=None):
                 color = GREEN
             elif (row, col) == start:
                 color = BLUE
+            elif final_path and (row, col) in final_path:
+                color = ORANGE
             pygame.draw.rect(screen, color, (x, y, cell_size, cell_size))
             pygame.draw.rect(screen, GRAY, (x, y, cell_size, cell_size), 1)
 
@@ -95,6 +98,22 @@ def take_action(pos, action):
     new_col = max(0, min(grid_size - 1, col + dc))
     return new_row, new_col
 
+# Extract optimal path after training
+def extract_optimal_path():
+    pos = start
+    path = [pos]
+    total_reward = 0
+    visited = set()
+    while pos != goal:
+        if pos in visited:
+            break
+        visited.add(pos)
+        a_idx = np.argmax(q_table[pos[0]][pos[1]])
+        pos = take_action(pos, actions[a_idx])
+        path.append(pos)
+        total_reward += get_reward(pos)
+    return path, total_reward
+
 # Q-learning algorithm with animation
 def train_q_learning():
     global q_table
@@ -133,6 +152,19 @@ def train_q_learning():
                 break
 
             time.sleep(0.05)
+
+    # Final optimal path visual
+    final_path, final_reward = extract_optimal_path()
+    draw_grid(final_path=final_path)
+    pygame.display.set_caption(f"Final Reward: {final_reward}. Press 'Q' to Quit.")
+
+    waiting = True
+    while waiting:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                waiting = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_q:
+                waiting = False
 
 # Setup function to select grid, goal, obstacles
 def setup_grid():
